@@ -1,0 +1,116 @@
+{
+  "version": "1.0.0",
+  "quality_gates": {
+    "scope_validation": {
+      "enabled": true,
+      "description": "Verify recommendation respects 'Not Yet' list from PIPELINE_STATUS.md",
+      "fail_action": "flag_for_human_review",
+      "check_file": "PIPELINE_STATUS.md"
+    },
+    "code_quality": {
+      "enabled": true,
+      "checks": [
+        {
+          "name": "typescript_strict",
+          "description": "TypeScript types are strict (no 'any' unless documented)",
+          "command": "tsc --noEmit --strict",
+          "required": true,
+          "applies_to": ["typescript", "javascript"]
+        },
+        {
+          "name": "lint",
+          "description": "ESLint passes with 0 errors",
+          "command": "npm run lint -- --max-warnings 0",
+          "required": true,
+          "applies_to": ["typescript", "javascript"]
+        },
+        {
+          "name": "unit_tests",
+          "description": "Unit tests pass",
+          "command": "npm test -- --testPathPattern='__tests__|.test\\.' --coverage",
+          "required": true,
+          "applies_to": ["typescript", "javascript", "python"]
+        }
+      ]
+    },
+    "build": {
+      "enabled": true,
+      "checks": [
+        {
+          "name": "build_succeeds",
+          "description": "Build completes without errors",
+          "command": "npm run build",
+          "required": true,
+          "applies_to": ["typescript", "javascript"]
+        }
+      ]
+    },
+    "e2e_tests": {
+      "enabled": true,
+      "checks": [
+        {
+          "name": "critical_flows",
+          "description": "Critical user flows pass E2E tests",
+          "command": "npx playwright test",
+          "required": false,
+          "applies_to": ["frontend"]
+        }
+      ]
+    },
+    "agent_native": {
+      "enabled": true,
+      "checks": [
+        {
+          "name": "parity_map_updated",
+          "description": "PARITY_MAP.md is updated with new tools",
+          "file_check": "PARITY_MAP.md",
+          "required": false,
+          "applies_to": ["feature_with_agent_tools"]
+        },
+        {
+          "name": "crud_complete",
+          "description": "Agent can Create, Read, Update, Delete entities",
+          "file_check": "PARITY_MAP.md",
+          "required": false,
+          "applies_to": ["feature_with_data_model"]
+        },
+        {
+          "name": "completion_signals",
+          "description": "Tools return { success, shouldContinue }",
+          "pattern": "shouldContinue",
+          "required": false,
+          "applies_to": ["feature_with_agent_tools"]
+        }
+      ]
+    }
+  },
+  "per_project": {
+    "deepstack": {
+      "quality_gates": ["typescript_strict", "lint", "unit_tests", "build_succeeds"],
+      "min_coverage": 70
+    },
+    "milo": {
+      "quality_gates": ["typescript_strict", "lint", "unit_tests", "build_succeeds"],
+      "min_coverage": 75
+    },
+    "pause": {
+      "quality_gates": ["typescript_strict", "lint", "build_succeeds"],
+      "min_coverage": 60
+    },
+    "x-place": {
+      "quality_gates": ["build_succeeds"],
+      "min_coverage": 0
+    }
+  },
+  "retry_strategy": {
+    "max_attempts": 3,
+    "backoff_seconds": 10,
+    "fail_after_max_attempts": true
+  },
+  "reporting": {
+    "include_failed_commands": true,
+    "include_error_logs": true,
+    "save_artifacts": true,
+    "artifacts_dir": "~/Development/reports/artifacts/"
+  }
+}

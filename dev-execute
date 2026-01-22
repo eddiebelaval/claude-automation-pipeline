@@ -1,0 +1,136 @@
+#!/bin/bash
+# Phase 3: User-Triggered Task Execution
+# Usage: dev-execute <task-id>
+#
+# This script:
+# 1. Looks up the task in the latest analysis report
+# 2. Determines if it's simple (auto-execute) or complex (PRD generation)
+# 3. Executes the task with appropriate quality gates
+# 4. Logs results for feedback tracking
+#
+# Examples:
+#   dev-execute quick-1        # Execute quick win
+#   dev-execute high-2         # Execute high-priority task
+#   dev-execute decision-1     # Show decision details
+
+set -e
+
+DEV_DIR="$HOME/Development"
+REPORTS_DIR="$DEV_DIR/reports"
+TASK_ID="${1:-}"
+
+if [[ -z "$TASK_ID" ]]; then
+    echo "Usage: dev-execute <task-id>"
+    echo ""
+    echo "Available tasks from today's report:"
+    echo ""
+
+    # Find latest analysis report
+    latest_analysis=$(ls -t "$REPORTS_DIR"/analysis-*.json 2>/dev/null | head -1)
+    if [[ -f "$latest_analysis" ]]; then
+        if command -v jq &> /dev/null; then
+            echo "Quick Wins:"
+            jq -r '.quick_wins[]? | "  \(.id): \(.description)"' "$latest_analysis"
+            echo ""
+            echo "High Priority:"
+            jq -r '.high_priority[]? | "  \(.id): \(.description)"' "$latest_analysis"
+            echo ""
+            echo "Decisions:"
+            jq -r '.decision_gates[]? | "  \(.id): \(.question)"' "$latest_analysis"
+        fi
+    else
+        echo "No analysis report found. Run: ~/Development/scripts/collect-product-health.sh"
+    fi
+    exit 0
+fi
+
+# Find latest analysis report
+latest_analysis=$(ls -t "$REPORTS_DIR"/analysis-*.json 2>/dev/null | head -1)
+
+if [[ ! -f "$latest_analysis" ]]; then
+    echo "✗ Error: No analysis report found"
+    echo "  Run: ~/Development/scripts/collect-product-health.sh && ~/Development/scripts/analyze-report.sh"
+    exit 1
+fi
+
+echo "Looking up task: $TASK_ID"
+echo ""
+
+# Parse task details
+if command -v jq &> /dev/null; then
+    task_json=$(jq ".quick_wins[]? | select(.id == \"$TASK_ID\"), .high_priority[]? | select(.id == \"$TASK_ID\"), .decision_gates[]? | select(.id == \"$TASK_ID\")" "$latest_analysis")
+
+    if [[ -z "$task_json" ]] || [[ "$task_json" == "null" ]]; then
+        echo "✗ Error: Task not found: $TASK_ID"
+        exit 1
+    fi
+else
+    echo "✗ Error: jq is required. Install: brew install jq"
+    exit 1
+fi
+
+# Extract task details
+task_type=$(echo "$task_json" | jq -r '.type // "unknown"')
+task_desc=$(echo "$task_json" | jq -r '.description // ""')
+task_project=$(echo "$task_json" | jq -r '.project // ""')
+
+echo "Task: $TASK_ID"
+echo "Type: $task_type"
+echo "Description: $task_desc"
+[[ -n "$task_project" ]] && echo "Project: $task_project"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# ROUTE BASED ON TASK TYPE
+# ═══════════════════════════════════════════════════════════════
+
+case "$task_type" in
+    "maintenance"|"cleanup"|"bugfix")
+        echo "Executing simple task..."
+        # For now, show what would be executed
+        echo "  → This would execute: auto-fix-$task_type"
+        echo "  → After completion, run quality gates"
+        echo ""
+        echo "Implementation needed: Create auto-fix handlers in Phase 4"
+        ;;
+
+    "feature"|"implementation")
+        echo "Generating execution plan..."
+        echo "  → This requires PRD generation"
+        echo "  → Project: $task_project"
+        echo ""
+        echo "Implementation needed: Integrate with project-planner skill"
+        ;;
+
+    "question"|"decision")
+        echo "Decision Gate:"
+        question=$(echo "$task_json" | jq -r '.question // ""')
+        echo "  Q: $question"
+        options=$(echo "$task_json" | jq -r '.options[]? // ""')
+        if [[ -n "$options" ]]; then
+            echo "  Options:"
+            while IFS= read -r option; do
+                echo "    • $option"
+            done <<< "$options"
+        fi
+        echo ""
+        echo "Next: Approve decision in morning report, then rerun with approved flag"
+        ;;
+
+    *)
+        echo "✗ Error: Unknown task type: $task_type"
+        exit 1
+        ;;
+esac
+
+# ═══════════════════════════════════════════════════════════════
+# LOG EXECUTION ATTEMPT
+# ═══════════════════════════════════════════════════════════════
+
+# Create execution log entry (format for feedback tracking)
+execution_log="{\"task_id\": \"$TASK_ID\", \"type\": \"$task_type\", \"project\": \"$task_project\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"status\": \"started\"}"
+
+# This would be appended to feedback-db.json in Phase 5
+echo "Execution logged: $execution_log"
+
+exit 0

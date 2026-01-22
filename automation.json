@@ -1,0 +1,54 @@
+{
+  "version": "1.0.0",
+  "enabled": false,
+  "schedule": {
+    "nightly_collection": {
+      "enabled": true,
+      "time": "03:00",
+      "cron": "0 3 * * *",
+      "description": "Collect product health data"
+    },
+    "morning_analysis": {
+      "enabled": true,
+      "time": "06:00",
+      "cron": "0 6 * * *",
+      "description": "Analyze health report with Claude"
+    },
+    "morning_report": {
+      "enabled": true,
+      "time": "07:00",
+      "cron": "0 7 * * *",
+      "description": "Generate morning report and open"
+    }
+  },
+  "api": {
+    "claude_model": "claude-opus-4-5-20251101",
+    "max_tokens": 2000,
+    "api_key_source": "environment"
+  },
+  "automation": {
+    "auto_execute_enabled": false,
+    "max_retries": 3,
+    "quality_gates_enabled": true,
+    "create_branches": true,
+    "auto_commit": true,
+    "auto_push_branches": true,
+    "auto_create_prs": true
+  },
+  "thresholds": {
+    "stale_project_days": 30,
+    "critical_issue_priority": "high",
+    "disk_usage_warn_gb": 50,
+    "uncommitted_warn_count": 5
+  },
+  "notifications": {
+    "macos": true,
+    "slack": false,
+    "email": false
+  },
+  "data_retention": {
+    "nightly_reports_days": 30,
+    "morning_reports_days": 60,
+    "feedback_db_months": 12
+  }
+}
