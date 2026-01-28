@@ -9,7 +9,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>source $HOME/.bashrc && /Users/eddiebelaval/Development/scripts/analyze-report.sh</string>
+        <string>/Users/eddiebelaval/Development/analyze-report.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>
@@ -29,7 +29,9 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/Users/eddiebelaval/.nvm/versions/node/v20.18.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/eddiebelaval</string>
     </dict>
 
     <key>RunAtLoad</key>
