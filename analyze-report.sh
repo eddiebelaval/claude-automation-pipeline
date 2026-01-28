@@ -20,10 +20,17 @@ DATE=$(date +%Y-%m-%d)
 NIGHTLY_FILE="$REPORTS_DIR/nightly-$DATE.json"
 ANALYSIS_FILE="$REPORTS_DIR/analysis-$DATE.json"
 
-# Get API key from environment or Claude settings
-CLAUDE_API_KEY="${CLAUDE_API_KEY:-}"
+# Get API key from environment or config files
+CLAUDE_API_KEY="${CLAUDE_API_KEY:-${ANTHROPIC_API_KEY:-}}"
 if [[ -z "$CLAUDE_API_KEY" ]]; then
-    # Try to read from settings files
+    # Try clawdbot auth-profiles first (most reliable)
+    clawdbot_auth="$HOME/.clawdbot/agents/main/agent/auth-profiles.json"
+    if [[ -f "$clawdbot_auth" ]] && command -v jq &> /dev/null; then
+        CLAUDE_API_KEY=$(jq -r '.profiles["anthropic:default"].key // empty' "$clawdbot_auth" 2>/dev/null)
+    fi
+fi
+if [[ -z "$CLAUDE_API_KEY" ]]; then
+    # Try Claude settings files as fallback
     for settings_file in "$HOME/.claude/settings.json" "$HOME/Development/id8/tools/claude-settings/settings.json"; do
         if [[ -f "$settings_file" ]] && command -v jq &> /dev/null; then
             CLAUDE_API_KEY=$(jq -r '.api_key // empty' "$settings_file" 2>/dev/null)

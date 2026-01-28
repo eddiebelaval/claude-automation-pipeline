@@ -7,7 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/eddiebelaval/Development/scripts/generate-morning-report.sh</string>
+        <string>/Users/eddiebelaval/Development/generate-morning-report.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>
@@ -23,6 +23,14 @@
 
     <key>StandardErrorPath</key>
     <string>/Users/eddiebelaval/Development/reports/launchd-morning-report-error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/Users/eddiebelaval/.nvm/versions/node/v20.18.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/eddiebelaval</string>
+    </dict>
 
     <key>RunAtLoad</key>
     <false/>
