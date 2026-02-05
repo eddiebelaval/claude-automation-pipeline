@@ -11,7 +11,16 @@ HYDRA (Hybrid Unified Dispatch and Response Architecture) is a multi-agent coord
 │  AGENTS: MILO (coordinator) + FORGE + SCOUT + PULSE             │
 │  DATABASE: ~/.hydra/hydra.db (SQLite)                           │
 │  SYNC: hydra-sync.sh (8:30 AM daily via launchd)                │
-│  INTEGRATION: OpenClaw Gateway (port 18789)                     │
+│  NOTIFICATIONS: Telegram + macOS + MacDown                       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    NOTIFICATION FLOW                             │
+├─────────────────────────────────────────────────────────────────┤
+│  agent-runner.sh ─┐                                             │
+│  daily-briefing.sh ├──▶ notify-eddie.sh ──┬──▶ Telegram Bot API │
+│  notification-check.sh                    ├──▶ macOS Alert      │
+│                                           └──▶ MacDown Opens    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,22 +40,45 @@ HYDRA (Hybrid Unified Dispatch and Response Architecture) is a multi-agent coord
 ├── hydra.db              # SQLite coordination database
 ├── init-db.sql           # Database schema
 ├── config/
-│   └── agents.yaml       # Agent roster configuration
-└── sessions/
-    ├── milo/             # Coordinator workspace
-    │   ├── SOUL.md
-    │   ├── IDENTITY.md
-    │   ├── AGENTS.md
-    │   └── HEARTBEAT.md
-    ├── forge/            # Dev specialist workspace
-    ├── scout/            # Research specialist workspace
-    └── pulse/            # Ops specialist workspace
+│   ├── agents.yaml       # Agent roster configuration
+│   ├── telegram.env      # Telegram credentials (DO NOT COMMIT)
+│   └── telegram.env.example  # Template for telegram setup
+├── daemons/
+│   ├── agent-runner.sh   # Agent heartbeat processor
+│   ├── daily-briefing.sh # Morning briefing generator
+│   ├── notify-eddie.sh   # Centralized notification dispatcher
+│   └── notification-check.sh  # Urgent notification alerter
+├── sessions/
+│   ├── milo/             # Coordinator workspace
+│   │   ├── SOUL.md
+│   │   ├── IDENTITY.md
+│   │   ├── AGENTS.md
+│   │   └── HEARTBEAT.md
+│   ├── forge/            # Dev specialist workspace
+│   ├── scout/            # Research specialist workspace
+│   └── pulse/            # Ops specialist workspace
+├── briefings/            # Daily morning briefings
+├── reports/              # Agent heartbeat reports
+│   ├── milo/
+│   ├── forge/
+│   ├── scout/
+│   └── pulse/
+└── tools/
+    └── hydra-cli.sh      # CLI tool (symlinked to ~/.local/bin/hydra)
 
 ~/Development/scripts/
-└── hydra-sync.sh         # Automation → HYDRA sync
+├── hydra-sync.sh         # Automation → HYDRA sync
+└── hydra-standup.sh      # Daily standup generator
 
 ~/Library/LaunchAgents/
-└── com.hydra.sync.plist  # 8:30 AM daily schedule
+├── com.hydra.sync.plist           # 8:30 AM - Sync automation signals
+├── com.hydra.standup.plist        # 8:35 AM - Generate standup
+├── com.hydra.briefing.plist       # 8:40 AM - Morning briefing
+├── com.hydra.notification-check.plist  # Every 5 min - Check urgents
+├── com.hydra.agent-milo.plist     # Every 15 min - Coordinator
+├── com.hydra.agent-forge.plist    # Every 30 min - Dev specialist
+├── com.hydra.agent-pulse.plist    # Every 30 min - Ops specialist
+└── com.hydra.agent-scout.plist    # Every 60 min - Research specialist
 ```
 
 ## Installation
@@ -96,10 +128,6 @@ sqlite3 ~/.hydra/hydra.db "SELECT id, title, assigned_to, priority FROM tasks WH
 sqlite3 ~/.hydra/hydra.db "SELECT * FROM v_pending_notifications;"
 ```
 
-## Integration with OpenClaw
-
-HYDRA agent sessions will be registered with the OpenClaw gateway. Each agent workspace (`~/.hydra/sessions/{agent}/`) contains the personality files that OpenClaw loads on session start.
-
 ## CLI Commands
 
 The `hydra` CLI is available after setup:
@@ -129,19 +157,67 @@ hydra task create
 hydra status
 ```
 
+## Notification System
+
+HYDRA uses a centralized notification dispatcher (`notify-eddie.sh`) that routes alerts through multiple channels based on priority:
+
+| Priority | Telegram | macOS Alert | MacDown Opens |
+|----------|----------|-------------|---------------|
+| urgent   | Yes      | Yes         | Yes           |
+| high     | No       | Yes         | Yes           |
+| normal   | No       | Yes         | No            |
+| silent   | No       | No          | No (log only) |
+
+### Setting Up Telegram Notifications
+
+1. **Create a Telegram Bot:**
+   - Message [@BotFather](https://t.me/BotFather) on Telegram
+   - Send `/newbot` and follow the prompts
+   - Copy your bot token (looks like `123456789:ABCdefGHIjklMNO...`)
+
+2. **Get Your Chat ID:**
+   - Message [@userinfobot](https://t.me/userinfobot) or [@getmyid_bot](https://t.me/getmyid_bot)
+   - Copy your chat ID (a number like `123456789`)
+
+3. **Configure HYDRA:**
+   ```bash
+   cp ~/.hydra/config/telegram.env.example ~/.hydra/config/telegram.env
+   chmod 600 ~/.hydra/config/telegram.env
+   # Edit telegram.env with your bot token and chat ID
+   ```
+
+4. **Test:**
+   ```bash
+   ~/.hydra/daemons/notify-eddie.sh urgent "Test" "Telegram working!"
+   ```
+
+### macOS Notifications
+
+Install terminal-notifier for desktop alerts:
+```bash
+brew install terminal-notifier
+```
+
 ## Launchd Jobs
 
 | Job | Schedule | Purpose |
 |-----|----------|---------|
 | com.hydra.sync | 8:30 AM daily | Sync automation findings to tasks |
-| com.hydra.notification-check | Every 5 min | Check/alert urgent notifications |
+| com.hydra.standup | 8:35 AM daily | Generate daily standup |
+| com.hydra.briefing | 8:40 AM daily | Morning briefing in MacDown |
+| com.hydra.notification-check | Every 5 min | Alert on urgent notifications |
+| com.hydra.agent-milo | Every 15 min | Coordinator heartbeat |
+| com.hydra.agent-forge | Every 30 min | Dev specialist heartbeat |
+| com.hydra.agent-pulse | Every 30 min | Ops specialist heartbeat |
+| com.hydra.agent-scout | Every 60 min | Research specialist heartbeat |
 
 ## Related Files
 
 - `scripts/hydra-sync.sh` - Automation sync script (this repo)
-- `~/.hydra/` - HYDRA configuration (outside repo)
+- `scripts/hydra-standup.sh` - Daily standup generator (this repo)
+- `~/.hydra/` - HYDRA configuration and daemons (outside repo, private)
 - `~/.hydra/tools/hydra-cli.sh` - CLI tool (symlinked to ~/.local/bin/hydra)
-- `~/.openclaw/` - OpenClaw configuration (outside repo)
+- `~/.hydra/config/telegram.env` - Telegram credentials (DO NOT COMMIT)
 
 ## Background
 
